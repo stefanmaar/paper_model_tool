@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+id = "paper_model_tool"
+name = "Paper Model Tool"
+version = "0.0.1"
+tagline = "Convert 3D mesh into printable papercraft sheets."
+maintainer = "Stefan Mertl"
+type = "add-on"
+tags = ["paper", "papercraft"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+website = ""
+copyright = ["2025 Stefan Mertl"]
+[permissions]
+files = "Requires access to directory where it exports .pdf/.svg file"
