@@ -1,4 +1,6 @@
 import bpy
+import bpy_extras
+import bpy_extras.view3d_utils
 import bmesh
 import math
 import mathutils as mu
@@ -238,6 +240,7 @@ class ExportPaperModel(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
+        print("ExportPaperModel operator execute")
         if not self.unfolder:
             self.prepare(context)
         self.unfolder.do_create_uvmap = self.do_create_uvmap
@@ -411,3 +414,154 @@ class SelectIsland(bpy.types.Operator):
                 vert.select = any(edge.select for edge in vert.link_edges)
         bmesh.update_edit_mesh(me, loop_triangles=False, destructive=False)
         return {'FINISHED'}
+
+
+class InitializeGlueFlaps(bpy.types.Operator):
+    """Initialize the glue flaps of an unfolded mesh"""
+
+    bl_idname = "mesh.pmt_init_glue_flaps"
+    bl_label = "Initialize Glue Flaps"
+    bl_description = "Initialize the glue flaps of an unfolded mesh."
+
+    def execute(self, context):
+        print("Execute pmt_init_glue_flaps.")
+        return {'FINISHED'}
+   
+    def invoke(self, context, event):
+        print("Invoke pmg_init_glue_flaps.")
+        print(event)
+        obj = context.active_object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+
+        # Create the flap_island edge attribute.
+        attribute = mesh.attributes.new(name="glue_flap_island",
+                                        type="INT",
+                                        domain="EDGE")
+
+        flap_layer = bm.edges.layers.int.get('glue_flap_island')
+        for cur_edge in bm.edges:
+            cur_edge[flap_layer] = -1
+        
+        seam_edges = [x for x in bm.edges if x.seam]
+        sel_edges = [x for x in bm.edges if x.select]
+        sel_faces = [x for x in bm.faces if x.select]
+        print(seam_edges)
+        print(sel_edges)
+        for cur_face in sel_faces:
+            print(cur_face.calc_center_median_weighted())
+
+        island_list = mesh.paper_island_list
+        for k, cur_island in enumerate(island_list):
+            for cur_island_edge in cur_island.edges:
+                if cur_island_edge.data[flap_layer] == -1:
+                    cur_island_edge.data[flap_layer] = k
+        
+        return {'FINISHED'}
+
+class TestOperator(bpy.types.Operator):
+    """Test Operator"""
+
+    bl_idname = "mesh.pmt_test_operator"
+    bl_label = "Test Operator"
+    bl_description = "Testing blender operator"
+
+    def execute(self, context):
+        print("Hello Test Operator.")
+        return {'FINISHED'}
+   
+    def invoke(self, context, event):
+        print("Invoke in Test Operator.")
+        print(event)
+        obj = context.active_object
+        bm = bmesh.from_edit_mesh(obj.data)
+        sel_edges = [x for x in bm.edges if x.select and x.seam]
+        sel_faces = [x for x in bm.faces if x.select]
+        for cur_face in sel_faces:
+            print(cur_face.calc_center_median_weighted())
+        print(sel_edges)
+        return {'FINISHED'}
+
+
+class HighlightIsland(bpy.types.Operator):
+    """Highlight Operator"""
+
+    bl_idname = "mesh.pmt_highlight_island"
+    bl_label = "Highlight Island Operator"
+    bl_description = "Testing face highlighting."
+
+    def excute(self, context):
+        print("Hello Highlighter.")
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        print("Invoke in Highlighter.")
+        print(event)
+        
+        if((context.mode != 'EDIT_MESH') or (context.space_data.type != 'VIEW_3D')):
+            return{'CANCELLED'}
+              
+        obj = context.active_object
+        print(obj)
+        mesh = obj.data
+        print(mesh)
+        bm = bmesh.from_edit_mesh(obj.data)
+        region = bpy.context.region
+        region_3d = bpy.context.space_data.region_3d
+        mouse_pos = [event.mouse_region_x, event.mouse_region_y]
+        
+        # Compute the BVHTree of the mesh.
+        # This should be computed only if the mesh has changed to save resources.
+        print("Computing the tree.")
+        tree = mu.bvhtree.BVHTree.FromBMesh(bm)
+        print("done.")
+        
+        # Convert 2d region mouse coordingates to 3d coordinates of the 
+        # ray origin and the ray direction.
+        ray_origin = bpy_extras.view3d_utils.region_2d_to_origin_3d(region,
+                                                                    region_3d,
+                                                                    mouse_pos)           
+        ray_direction = bpy_extras.view3d_utils.region_2d_to_vector_3d(region,
+                                                                       region_3d,
+                                                                       mouse_pos)
+        
+        #ray_origin = mathutils.Vector((0, 0, 5))
+        #ray_direction = mathutils.Vector((0, 0, -1))
+                
+        # Translate the ray_origin coordinates to object related coordinates.
+        # bvhtree.ray_cast uses object related coordinates.
+        world2obj = obj.matrix_world.inverted()
+        ray_origin_obj = world2obj @ ray_origin
+        
+        # The obj.ray_cast function is not working as expected.
+        # Switched to using bvhtree.ray_cast instead.
+        #raycast_res = obj.ray_cast(ray_origin, ray_direction)
+        
+        raycast_res = tree.ray_cast(ray_origin_obj, ray_direction)
+        
+        print("raycast_res: {}".format(raycast_res))
+        print("ray_origin: {}".format(ray_origin))
+        print("ray_origin_obj: {}".format(ray_origin_obj))
+        print("ray_direction: {}".format(ray_direction))
+        
+        hit_face_id = raycast_res[2]
+        if hit_face_id is not None:
+            mesh.pmt_highlight_face_id = hit_face_id
+
+            sel_faces = [x for x in bm.faces if x.select]
+            for cur_face in sel_faces:
+                print("cur_face.index: {}".format(cur_face.index))
+                print("cur_face center: {}".format(cur_face.calc_center_median_weighted()))
+        else:
+            mesh.pmt_highlight_face_id = -1
+        
+        #closest_face.select = True
+        #bmesh.update_edit_mesh(obj.data)
+        context.area.tag_redraw()
+                
+        return {'FINISHED'}
+    
+    def modal(self, context, event):
+        print("Modal in Highlighter.")
+        print(event)
+        return {'RUNNING_MODAL'}

@@ -23,6 +23,21 @@ class VIEW3D_PT_paper_model_tools(bpy.types.Panel):
             layout.operator("mesh.clear_all_seams")
 
 
+class VIEW3D_PT_glue_flaps_panel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Paper'
+    bl_label = "Glue Flaps Layout"
+
+    def draw(self, context):
+        layout = self.layout
+        sce = context.scene
+        obj = context.active_object
+        mesh = obj.data if obj and obj.type == 'MESH' else None
+
+        layout.operator("mesh.pmt_init_glue_flaps")
+            
+            
 class VIEW3D_PT_paper_model_settings(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
