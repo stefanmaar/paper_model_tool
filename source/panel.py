@@ -4,7 +4,7 @@ import bpy
 class VIEW3D_PT_paper_model_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'Paper'
+    bl_category = 'PMT'
     bl_label = "Unfold"
 
     def draw(self, context):
@@ -26,7 +26,7 @@ class VIEW3D_PT_paper_model_tools(bpy.types.Panel):
 class VIEW3D_PT_glue_flaps_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'Paper'
+    bl_category = 'PMT'
     bl_label = "Glue Flaps Layout"
 
     def draw(self, context):
@@ -41,7 +41,7 @@ class VIEW3D_PT_glue_flaps_panel(bpy.types.Panel):
 class VIEW3D_PT_paper_model_settings(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'Paper'
+    bl_category = 'PMT'
     bl_label = "Export"
 
     def draw(self, context):
