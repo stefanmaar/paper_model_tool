@@ -54,6 +54,18 @@ class Unfold(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='EDIT')
 
         self.object = context.object
+        mesh = self.object.data
+        bm = bmesh.from_edit_mesh(mesh)
+
+        # Create the flap_island edge attribute.
+        if 'island_num' not in mesh.attributes:
+            attribute = mesh.attributes.new(name="island_num",
+                                            type="INT",
+                                            domain="FACE")
+
+        flap_layer = bm.faces.layers.int.get('island_num')
+        for cur_face in bm.faces:
+            cur_face[flap_layer] = -1
 
         cage_size = mu.Vector((settings.output_size_x, settings.output_size_y))
         priority_effect = {
@@ -64,7 +76,9 @@ class Unfold(bpy.types.Operator):
             unfolder = pmt_unfold.Unfolder(self.object)
             unfolder.do_create_uvmap = self.do_create_uvmap
             scale = sce.unit_settings.scale_length / settings.scale
-            unfolder.prepare(cage_size, priority_effect, scale, settings.limit_by_page)
+            #unfolder.prepare(cage_size, priority_effect, scale, settings.limit_by_page)
+            unfolder.pmt_unfold(cage_size, priority_effect, scale,
+                                settings.limit_by_page)
             unfolder.mesh.mark_cuts()
         except pmt_util.PmtError as error:
             self.report(type={'ERROR_INVALID_INPUT'}, message=error.args[0])

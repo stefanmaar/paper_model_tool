@@ -24,6 +24,14 @@ class Unfolder:
         if not self.do_create_uvmap:
             self.mesh.delete_uvmap()
 
+
+    def pmt_unfold(self, cage_size=None, priority_effect=default_priority_effect, scale=1, limit_by_page=False):
+        self.mesh.generate_cuts(cage_size / scale if limit_by_page and cage_size else None, priority_effect)
+        self.mesh.finalize_islands(cage_size or mu.Vector((1, 1)))
+        self.mesh.enumerate_islands()
+        self.mesh.pmt_set_face_properties()
+        
+    
     def prepare(self, cage_size=None, priority_effect=default_priority_effect, scale=1, limit_by_page=False):
         """Create the islands of the net"""
         self.mesh.generate_cuts(cage_size / scale if limit_by_page and cage_size else None, priority_effect)

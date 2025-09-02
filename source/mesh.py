@@ -385,3 +385,18 @@ class Mesh:
                 mat.node_tree.nodes.remove(node)
         for uv in ignored_uvs:
             uv *= -1
+
+    def pmt_set_face_properties(self):
+    
+        for cur_island in self.islands:
+            print("--- Island ---")
+            print(cur_island.label)
+            #print(cur_island.faces)
+            #print(cur_island.edges)
+            island_num_layer = self.data.faces.layers.int.get('island_num')
+            for cur_face, cur_uv_faces in cur_island.faces.items():
+                print(cur_face)
+                print(cur_uv_faces)
+                cur_face[island_num_layer] = cur_island.number
+                
+        
