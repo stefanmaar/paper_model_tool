@@ -24,21 +24,23 @@
 # * append a number to the conflicting names or
 # * enumerate faces uniquely within all islands of the same name (requires a check that both label and abbr. equals)
 
-import bpy
-#import bl_operators
-#import bmesh
-#import mathutils as M
-#from re import compile as re_compile
-#from itertools import chain, repeat, product, combinations
-#from math import pi, ceil, asin, atan2
-#import os.path as os_path
 
-from . import draw as pmt_draw
-from . import operator as pmt_operator
-from . import properties as pmt_props
-from . import panel as pmt_panel
-from . import preferences as pmt_prefs
-from . import tool as pmt_tool
+if "bpy" not in locals():
+    import bpy
+    from . import draw as pmt_draw
+    from . import operator as pmt_operator
+    from . import properties as pmt_props
+    from . import panel as pmt_panel
+    from . import preferences as pmt_prefs
+    from . import tool as pmt_tool
+else:
+    import importlib
+    importlib.reload(locals()["pmt_draw"])
+    importlib.reload(locals()["pmt_operator"])
+    importlib.reload(locals()["pmt_props"])
+    importlib.reload(locals()["pmt_panel"])
+    importlib.reload(locals()["pmt_prefs"])
+    importlib.reload(locals()["pmt_tool"])
 
 
 def menu_func_export(self, context):
