@@ -26,10 +26,12 @@ class Unfolder:
 
 
     def pmt_unfold(self, cage_size=None, priority_effect=default_priority_effect, scale=1, limit_by_page=False):
-        self.mesh.generate_cuts(cage_size / scale if limit_by_page and cage_size else None, priority_effect)
+        self.mesh.pmt_generate_cuts(cage_size / scale if limit_by_page and cage_size else None, priority_effect)
         self.mesh.finalize_islands(cage_size or mu.Vector((1, 1)))
         self.mesh.enumerate_islands()
-        self.mesh.pmt_set_face_properties()
+        self.mesh.pmt_init_glue_flaps()
+        self.mesh.pmt_set_face_attributes()
+        self.mesh.pmt_set_edge_attributes()
         
     
     def prepare(self, cage_size=None, priority_effect=default_priority_effect, scale=1, limit_by_page=False):

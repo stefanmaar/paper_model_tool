@@ -57,16 +57,70 @@ class Unfold(bpy.types.Operator):
         mesh = self.object.data
         bm = bmesh.from_edit_mesh(mesh)
 
-        # Create the flap_island edge attribute.
+        # Create the island_num attribute if it doesn't exist.
         if 'island_num' not in mesh.attributes:
             attribute = mesh.attributes.new(name="island_num",
                                             type="INT",
                                             domain="FACE")
 
-        flap_layer = bm.faces.layers.int.get('island_num')
-        for cur_face in bm.faces:
-            cur_face[flap_layer] = -1
+            # Initialize the island_num attribute.
+            flap_layer = bm.faces.layers.int.get('island_num')
+            for cur_face in bm.faces:
+                cur_face[flap_layer] = -1
 
+            # Create the pmt_boundary_faces attribute if it doesn't exist.
+            if 'pmt_boundary_island' not in mesh.attributes:
+                attribute = mesh.attributes.new(name="pmt_boundary_island",
+                                                type="FLOAT_VECTOR",
+                                                domain="EDGE")
+
+        # Initialize the pmt_boundary_faces attribute.
+        boundary_layer = bm.edges.layers.float_vector.get('pmt_boundary_island')
+        for cur_edge in bm.edges:
+            cur_edge[boundary_layer] = [-1, -1, -1]
+
+            
+        # Create the flap_face edge attribute if it doesn't exist.
+        if 'glue_flap_face_source' not in mesh.attributes:
+            attribute = mesh.attributes.new(name="glue_flap_face_source",
+                                            type="INT",
+                                            domain="EDGE")
+
+            flap_layer = bm.edges.layers.int.get('glue_flap_face_source')
+            for cur_edge in bm.edges:
+                cur_edge[flap_layer] = -1
+
+        # Create the flap_island edge attribute if it doesn't exist.
+        if 'glue_flap_face_target' not in mesh.attributes:
+            attribute = mesh.attributes.new(name="glue_flap_face_target",
+                                            type="INT",
+                                            domain="EDGE")
+
+            flap_layer = bm.edges.layers.int.get('glue_flap_face_target')
+            for cur_edge in bm.edges:
+                cur_edge[flap_layer] = -1
+
+        # Create the flap_island edge attribute if it doesn't exist.
+        if 'glue_flap_island_source' not in mesh.attributes:
+            attribute = mesh.attributes.new(name="glue_flap_island_source",
+                                            type="INT",
+                                            domain="EDGE")
+
+            flap_layer = bm.edges.layers.int.get('glue_flap_island_source')
+            for cur_edge in bm.edges:
+                cur_edge[flap_layer] = -1
+
+        # Create the flap_island edge attribute if it doesn't exist.
+        if 'glue_flap_island_target' not in mesh.attributes:
+            attribute = mesh.attributes.new(name="glue_flap_island_target",
+                                            type="INT",
+                                            domain="EDGE")
+
+            flap_layer = bm.edges.layers.int.get('glue_flap_island_target')
+            for cur_edge in bm.edges:
+                cur_edge[flap_layer] = -1
+
+            
         cage_size = mu.Vector((settings.output_size_x, settings.output_size_y))
         priority_effect = {
             'CONVEX': self.priority_effect_convex,
@@ -87,24 +141,25 @@ class Unfold(bpy.types.Operator):
             return {'CANCELLED'}
         mesh = self.object.data
         mesh.update()
-        if mesh.paper_island_list:
-            unfolder.copy_island_names(mesh.paper_island_list)
-        island_list = mesh.paper_island_list
-        attributes = {item.label: (item.abbreviation, item.auto_label, item.auto_abbrev) for item in island_list}
-        island_list.clear()  # remove previously defined islands
-        for island in unfolder.mesh.islands:
-            # add islands to UI list and set default descriptions
-            list_item = island_list.add()
-            # add faces' IDs to the island
-            for face in island.faces:
-                lface = list_item.faces.add()
-                lface.id = face.index
-            list_item["label"] = island.label
-            list_item["abbreviation"], list_item["auto_label"], list_item["auto_abbrev"] = attributes.get(
-                island.label,
-                (island.abbreviation, True, True))
-            pmt_util.island_item_changed(list_item, context)
-            mesh.paper_island_index = -1
+#        if mesh.paper_island_list:
+#            unfolder.copy_island_names(mesh.paper_island_list)
+#        island_list = mesh.paper_island_list
+#        attributes = {item.label: (item.abbreviation, item.auto_label, item.auto_abbrev) for item in island_list}
+#        island_list.clear()  # remove previously defined islands
+        
+#        for island in unfolder.mesh.islands:
+#            # add islands to UI list and set default descriptions
+#            list_item = island_list.add()
+#            # add faces' IDs to the island
+#            for face in island.faces:
+#                lface = list_item.faces.add()
+#                lface.id = face.index
+#            list_item["label"] = island.label
+#            list_item["abbreviation"], list_item["auto_label"], list_item["auto_abbrev"] = attributes.get(
+#                island.label,
+#                (island.abbreviation, True, True))
+#            pmt_util.island_item_changed(list_item, context)
+#            mesh.paper_island_index = -1
 
         del unfolder
         bpy.ops.object.mode_set(mode=recall_mode)
@@ -448,10 +503,11 @@ class InitializeGlueFlaps(bpy.types.Operator):
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
 
-        # Create the flap_island edge attribute.
-        attribute = mesh.attributes.new(name="glue_flap_island",
-                                        type="INT",
-                                        domain="EDGE")
+        # Create the flap_island edge attribute if it doesn't exist.
+        if 'glue_flap_island' not in mesh.attributes:
+            attribute = mesh.attributes.new(name="glue_flap_island",
+                                            type="INT",
+                                            domain="EDGE")
 
         flap_layer = bm.edges.layers.int.get('glue_flap_island')
         for cur_edge in bm.edges:

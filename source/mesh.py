@@ -72,6 +72,36 @@ class Mesh:
             "The offenders are selected and you can use {} to fix them. Export failed.".format(cure),
             {"verts": set(), "edges": null_edges, "faces": null_faces | twisted_faces}, self.data)
 
+
+    def pmt_generate_cuts(self, page_size, priority_effect):
+        """Cut the mesh so that it can be unfolded to a flat net."""
+        normal_matrix = self.matrix.inverted().transposed()
+        islands = {pmt_island.Island(self, face, self.matrix, normal_matrix) for face in self.data.faces}
+        uvfaces = {face: uvface for cur_island in islands for face, uvface in cur_island.faces.items()}
+        uvedges = {loop: uvedge for cur_island in islands for loop, uvedge in cur_island.edges.items()}
+        for loop, uvedge in uvedges.items():
+            self.edges[loop.edge].uvedges.append(uvedge)
+        # check for edges that are cut permanently
+        edges = [edge for edge in self.edges.values() if not edge.force_cut and edge.main_faces]
+
+        if edges:
+            average_length = sum(edge.vector.length for edge in edges) / len(edges)
+            for edge in edges:
+                edge.generate_priority(priority_effect, average_length)
+            edges.sort(reverse=False, key=lambda edge: edge.priority)
+            for edge in edges:
+                if not edge.vector:
+                    continue
+                edge_a, edge_b = (uvedges[l] for l in edge.main_faces)
+                old_island = pmt_edge.join_island(edge_a, edge_b, size_limit=page_size)
+                if old_island:
+                    islands.remove(old_island)
+
+        self.islands = sorted(islands, reverse=True, key=lambda island: len(island.faces))
+
+        return True
+
+    
     def generate_cuts(self, page_size, priority_effect):
         """Cut the mesh so that it can be unfolded to a flat net."""
         normal_matrix = self.matrix.inverted().transposed()
@@ -386,17 +416,113 @@ class Mesh:
         for uv in ignored_uvs:
             uv *= -1
 
-    def pmt_set_face_properties(self):
+    def pmt_set_face_attributes(self):
+        ''' Set the unfold attributes of the mesh face.
+        '''
     
         for cur_island in self.islands:
             print("--- Island ---")
             print(cur_island.label)
             #print(cur_island.faces)
             #print(cur_island.edges)
+
+            # The island number containing the face.
             island_num_layer = self.data.faces.layers.int.get('island_num')
             for cur_face, cur_uv_faces in cur_island.faces.items():
-                print(cur_face)
-                print(cur_uv_faces)
+                #print(cur_face)
+                #print(cur_uv_faces)
                 cur_face[island_num_layer] = cur_island.number
-                
+
+
+    def pmt_set_edge_attributes(self):
+        ''' Set the unfold attributes of the mesh edges.
+        '''
+        for cur_island in self.islands:
+            boundary_layer = self.data.edges.layers.float_vector.get('pmt_boundary_island')
+
+            if cur_island.number == 5:
+                pass
+
+            outer_edges = set(cur_island.boundary)
+            for cur_boundary_uvedge in outer_edges:
+                cur_boundary_edge = cur_boundary_uvedge.loop.edge
+                cur_vec = cur_boundary_edge[boundary_layer]
+                if cur_vec[0] == -1:
+                    cur_vec[0] = cur_island.number
+                elif (cur_vec[0] != cur_island.number) and (cur_vec[1] == -1):
+                    cur_vec[1] = cur_island.number
+                elif (cur_vec[0] != cur_island.number) and (cur_vec[1] != cur_island.number):
+                    print("ERROR in pmt_set_edge_attributes.")
+                cur_boundary_edge[boundary_layer] = cur_vec
+            
         
+    def pmt_init_glue_flaps(self):
+        ''' Initialize the location of the glue flaps.
+        '''
+        def uvedge_priority(uvedge):
+            """Returns whether it is a good idea to stick something on this edge's face"""
+            # TODO: it should take into account overlaps with faces and with other stickers
+            flap_priority = 0
+            flap_face_source_layer = self.data.edges.layers.int.get('glue_flap_face_source')
+            face = uvedge.uvface.face
+
+            flap_face_source = uvedge.loop.edge[flap_face_source_layer]
+            print("flap_face_source: {}; face.index: {}".format(flap_face_source, face.index))
+            if (flap_face_source != -1) and (flap_face_source == face.index):
+                flap_priority = 1
+            elif (flap_face_source != -1) and (flap_face_source != face.index):
+                flap_priority = 0
+            else:
+                flap_priority = face.calc_area() / face.calc_perimeter()
+
+            print("flap_priority: {}".format(flap_priority))
+            return flap_priority
+
+        def add_sticker(uvedge, index, target_uvedge):
+            uvedge.sticker = pmt_export.Sticker(uvedge, default_width, index, target_uvedge)
+            uvedge.uvface.island.add_marker(uvedge.sticker)
+
+        def is_index_obvious(uvedge, target):
+            if uvedge in (target.neighbor_left, target.neighbor_right):
+                return True
+            if uvedge.neighbor_left.loop.edge is target.neighbor_right.loop.edge and uvedge.neighbor_right.loop.edge is target.neighbor_left.loop.edge:
+                return True
+            return False
+
+        flap_island_source_layer = self.data.edges.layers.int.get('glue_flap_island_source')
+        flap_island_target_layer = self.data.edges.layers.int.get('glue_flap_island_target')
+        flap_face_source_layer = self.data.edges.layers.int.get('glue_flap_face_source')
+        flap_face_target_layer = self.data.edges.layers.int.get('glue_flap_face_target')
+
+        for edge in self.edges.values():
+            index = None
+            if edge.is_main_cut and len(edge.uvedges) >= 2 and edge.vector.length_squared > 0:
+                target, source = edge.uvedges[:2]
+                if uvedge_priority(target) < uvedge_priority(source):
+                    target, source = source, target
+                #target_island = target.uvface.island
+                #if do_create_numbers:
+                #    for uvedge in [source] + edge.uvedges[2:]:
+                #        if not is_index_obvious(uvedge, target):
+                #            # it will not be clear to see that these uvedges should be sticked together
+                #            # So, create an arrow and put the index on all stickers
+                #            target_island.sticker_numbering += 1
+                #            index = str(target_island.sticker_numbering)
+                #            if pmt_util.is_upsidedown_wrong(index):
+                #                index += "."
+                #            target_island.add_marker(pmt_export.Arrow(target, default_width, index))
+                #            break
+                #add_sticker(source, index, target)
+                source.loop.edge[flap_island_source_layer] = source.uvface.island.number
+                source.loop.edge[flap_island_target_layer] = target.uvface.island.number
+                source.loop.edge[flap_face_source_layer] = source.uvface.face.index
+                source.loop.edge[flap_face_target_layer] = target.uvface.face.index
+            elif len(edge.uvedges) > 2:
+                target = edge.uvedges[0]
+            if len(edge.uvedges) > 2:
+                for source in edge.uvedges[2:]:
+                    #add_sticker(source, index, target)
+                    source.loop.edge[flap_island_source_layer] = source.uvface.island.number
+                    source.loop.edge[flap_island_target_layer] = target.uvface.island.number
+                    source.loop.edge[flap_face_source_layer] = source.uvface.face.index
+                    source.loop.edge[flap_face_target_layer] = target.uvface.face.index
