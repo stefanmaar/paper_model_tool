@@ -100,15 +100,15 @@ def register():
     #prefs.unfold_category = prefs.unfold_category
     #prefs.export_category = prefs.export_category
 
-    bpy.utils.register_tool(pmt_tool.SelectIslandTool,
-                            after = {"builtin.scale_cage"},
-                            separator = True,
-                            group = True)
+    #bpy.utils.register_tool(pmt_tool.SelectIslandTool,
+    #                        after = {"builtin.scale_cage"},
+    #                        separator = True,
+    #                        group = True)
 
-    bpy.types.SpaceView3D.draw_handler_add(pmt_draw.draw,
-                                           (),
-                                           'WINDOW',
-                                           'POST_VIEW')
+    #bpy.types.SpaceView3D.draw_handler_add(pmt_draw.draw,
+    #                                       (),
+    #                                       'WINDOW',
+    #                                       'POST_VIEW')
 
 
 def unregister():
@@ -116,7 +116,7 @@ def unregister():
     bpy.types.VIEW3D_MT_edit_mesh.remove(menu_func_unfold)
     for cls in reversed(module_classes):
         bpy.utils.unregister_class(cls)
-    bpy.utils.unregister_tool(pmt_tool.SelectIslandTool)
+    #bpy.utils.unregister_tool(pmt_tool.SelectIslandTool)
 
 
 if __name__ == "__main__":
