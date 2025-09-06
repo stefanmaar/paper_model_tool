@@ -2,6 +2,8 @@ import bpy
 import bpy_extras
 import bpy_extras.view3d_utils
 import bmesh
+import gpu
+import gpu_extras.batch as gpu_batch
 import math
 import mathutils as mu
 
@@ -560,6 +562,10 @@ class HighlightIsland(bpy.types.Operator):
     bl_label = "Highlight Island Operator"
     bl_description = "Testing face highlighting."
 
+    #def __init__(self, *args, **kwargs):
+    #    super().__init__(*args, **kwargs)
+        
+
     def excute(self, context):
         print("Hello Highlighter.")
         return {'FINISHED'}
@@ -567,10 +573,31 @@ class HighlightIsland(bpy.types.Operator):
     def invoke(self, context, event):
         print("Invoke in Highlighter.")
         print(event)
+
+        if ((context.mode != 'EDIT_MESH') or (context.space_data.type != 'VIEW_3D')):
+            return {'CANCELLED'}
+
+        self.draw_handle = None
+        self.lmb_pressed = False
+        self.rmb_pressed = False
+        self.mmb_pressed = False
+
+        # Initialize the shader.
+        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
         
-        if((context.mode != 'EDIT_MESH') or (context.space_data.type != 'VIEW_3D')):
-            return{'CANCELLED'}
-              
+        # Compute the BVHTree of the mesh.
+        obj = context.active_object
+        bm = bmesh.from_edit_mesh(obj.data)
+        self.tree = mu.bvhtree.BVHTree.FromBMesh(bm)
+
+        # Initialize the island selection state.
+        self.selected_face_id = -1
+        
+        self.register_handlers(context)
+        context.window_manager.modal_handler_add(self)
+        
+        return {'RUNNING_MODAL'}
+    
         obj = context.active_object
         print(obj)
         mesh = obj.data
@@ -632,6 +659,138 @@ class HighlightIsland(bpy.types.Operator):
         return {'FINISHED'}
     
     def modal(self, context, event):
-        print("Modal in Highlighter.")
-        print(event)
+        #print("Modal in Highlighter.")
+        #print(event)
+
+        pass_through_types = {'WHEELUPMOUSE',
+                              'WHEELDOWNMOUSE'}
+
+        print("--------")
+        print(event.type)
+        print(event.value)
+
+        print("{} - {} - {}".format(self.lmb_pressed,
+                                    self.mmb_pressed,
+                                    self.rmb_pressed))
+
+        if event.type == 'MOUSEMOVE':
+            if self.lmb_pressed or self.rmb_pressed:
+                return {'PASS_THROUGH'}
+            elif self.mmb_pressed:
+                # MIDDLEMOUSE RELEASE events are not issued.
+                # If MIDDLEMOUSE is pressed, no MOUSEMOVE events
+                # are sent. On release, a single MOUSEMOVE event
+                # is sent.
+                # Maybe thats a bug:
+                # https://blender.stackexchange.com/questions/338299/modal-operator-does-not-receive-middlemouse-release-event-in-3d-view
+                self.mmb_pressed = False
+                return {'PASS_THROUGH'}
+            else:
+                #print("MOUSEMOVE")
+                self.get_island(context,
+                                event.mouse_region_x,
+                                event.mouse_region_y)
+        if event.type == 'LEFTMOUSE':
+            if event.value == 'PRESS':
+                self.lmb_pressed = True
+            else:
+                self.lmb_pressed = False
+            return {'PASS_THROUGH'}
+        elif event.type == 'RIGHTMOUSE':
+            if event.value == 'PRESS':
+                self.ŕmb_pressed = True
+            else:
+                self.rmb_pressed = False
+            return {'PASS_THROUGH'}
+        elif event.type == 'MIDDLEMOUSE':
+            if event.value == 'PRESS':
+                self.mmb_pressed = True
+            else:
+                self.mmb_pressed = False
+            return {'PASS_THROUGH'}
+        elif event.type in pass_through_types:
+            return {'PASS_THROUGH'}
+        elif event.type in {'ESC'}:
+            print("ESC - STOPPING modal mode.")
+            self.unregister_handlers(context)
+            return {'FINISHED'}
+
+        context.area.tag_redraw()
+        
         return {'RUNNING_MODAL'}
+
+    
+    def register_handlers(self, context):
+        ''' Register the operator handlers.
+        '''
+        print("register_handlers")
+        args = (context,)
+        self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(
+            self.draw_callback,
+            args,
+            'WINDOW',
+            'POST_VIEW')
+
+    def unregister_handlers(self, context):
+        print("unregister_handlers")
+        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle,
+                                                  "WINDOW")
+        self.draw_handle = None
+
+        
+    def draw_callback(self, context):
+        print("draw_callback")
+        obj = context.active_object
+        bm = bmesh.from_edit_mesh(obj.data)
+        
+        if self.selected_face_id >= 0:
+            sel_face = bm.faces[self.selected_face_id]
+            coords = [(0, 0, 0), sel_face.calc_center_median_weighted()]
+            batch = gpu_batch.batch_for_shader(self.shader,
+                                               'LINES',
+                                               {"pos": coords})
+            self.shader.uniform_float("color", (1, 1, 0, 1))
+            batch.draw(self.shader)
+            
+
+    def get_island(self, context, mouse_x, mouse_y):
+        ''' Get the island nearest under the mouse pointer.
+        '''
+        print("get_island")
+        obj = context.active_object
+        mesh = obj.data
+        region = bpy.context.region
+        region_3d = bpy.context.space_data.region_3d
+        mouse_pos = [mouse_x, mouse_y]
+
+        # Convert 2d region mouse coordingates to 3d coordinates of the
+        # ray origin and the ray direction.
+        ray_origin = bpy_extras.view3d_utils.region_2d_to_origin_3d(region,
+                                                                    region_3d,
+                                                                    mouse_pos)        
+        ray_direction = bpy_extras.view3d_utils.region_2d_to_vector_3d(region,
+                                                                       region_3d,
+                                                                       mouse_pos)
+
+        # Translate the ray_origin coordinates to object related coordinates.
+        # bvhtree.ray_cast uses object related coordinates.
+        world2obj = obj.matrix_world.inverted()
+        ray_origin_obj = world2obj @ ray_origin
+
+        raycast_res = self.tree.ray_cast(ray_origin_obj, ray_direction)
+        
+        #print("raycast_res: {}".format(raycast_res))
+        #print("ray_origin: {}".format(ray_origin))
+        #print("ray_origin_obj: {}".format(ray_origin_obj))
+        #print("ray_direction: {}".format(ray_direction))
+        
+        hit_face_id = raycast_res[2]
+        if hit_face_id is not None:
+            self.selected_face_id = hit_face_id
+
+            #sel_faces = [x for x in bm.faces if x.select]
+            #for cur_face in sel_faces:
+                #print("cur_face.index: {}".format(cur_face.index))
+                #print("cur_face center: {}".format(cur_face.calc_center_median_weighted()))
+        else:
+            self.selected_face_id = -1
