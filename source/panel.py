@@ -39,6 +39,7 @@ class VIEW3D_PT_glue_flaps_panel(bpy.types.Panel):
         
         if context.mode == 'EDIT_MESH':
             layout.operator("mesh.pmt_highlight_island")
+            layout.operator("mesh.pmt_flip_glue_flaps")
             
             
             

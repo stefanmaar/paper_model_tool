@@ -196,11 +196,31 @@ class Mesh:
 
     def generate_stickers(self, default_width, do_create_numbers=True):
         """Add sticker faces where they are needed."""
+        #def uvedge_priority(uvedge):
+        #    """Returns whether it is a good idea to stick something on this edge's face"""
+        #    # TODO: it should take into account overlaps with faces and with other stickers
+        #    face = uvedge.uvface.face
+        #    return face.calc_area() / face.calc_perimeter()
+
         def uvedge_priority(uvedge):
             """Returns whether it is a good idea to stick something on this edge's face"""
             # TODO: it should take into account overlaps with faces and with other stickers
+            flap_priority = 0
+            flap_face_source_layer = self.data.edges.layers.int.get('glue_flap_face_source')
             face = uvedge.uvface.face
-            return face.calc_area() / face.calc_perimeter()
+
+            flap_face_source = uvedge.loop.edge[flap_face_source_layer]
+            print("generate_stickers")
+            print("flap_face_source: {}; face.index: {}".format(flap_face_source, face.index))
+            if (flap_face_source != -1) and (flap_face_source == face.index):
+                flap_priority = 1
+            elif (flap_face_source != -1) and (flap_face_source != face.index):
+                flap_priority = 0
+            else:
+                flap_priority = face.calc_area() / face.calc_perimeter()
+
+            print("flap_priority: {}".format(flap_priority))
+            return flap_priority
 
         def add_sticker(uvedge, index, target_uvedge):
             uvedge.sticker = pmt_export.Sticker(uvedge, default_width, index, target_uvedge)

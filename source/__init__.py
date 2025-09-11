@@ -52,13 +52,14 @@ def menu_func_unfold(self, context):
     
 
 module_classes = (
-    pmt_operator.Unfold,
-    pmt_operator.ExportPaperModel,
     pmt_operator.ClearAllSeams,
-    pmt_operator.SelectIsland,
-    pmt_operator.InitializeGlueFlaps,
+    pmt_operator.ExportPaperModel,
+    pmt_operator.FlipGlueFlaps,
     pmt_operator.HighlightIsland,
+    pmt_operator.InitializeGlueFlaps,
+    pmt_operator.SelectIsland,
     pmt_operator.TestOperator,
+    pmt_operator.Unfold,
     pmt_props.FaceList,
     pmt_props.IslandList,
     pmt_props.PaperModelSettings,

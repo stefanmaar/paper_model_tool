@@ -289,6 +289,10 @@ class ExportPaperModel(bpy.types.Operator):
         cage_size = mu.Vector((sce.paper_model.output_size_x, sce.paper_model.output_size_y))
         unfolder_scale = sce.unit_settings.scale_length/self.scale
         self.unfolder.prepare(cage_size, scale=unfolder_scale, limit_by_page=sce.paper_model.limit_by_page)
+        #self.unfolder.pmt_unfold(cage_size,
+        #                         scale=unfolder_scale,
+        #                         limit_by_page=sce.paper_model.limit_by_page)
+        #self.unfolder.mesh.mark_cuts()
         if sce.paper_model.use_auto_scale:
             self.scale = math.ceil(self.get_scale_ratio(sce))
 
@@ -555,6 +559,41 @@ class TestOperator(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class FlipGlueFlaps(bpy.types.Operator):
+    """Flip the glue flaps of the selected edges."""
+
+    bl_idname = "mesh.pmt_flip_glue_flaps"
+    bl_label = "Flip Glue Flaps"
+    bl_description = "Flip the glue flaps of selected edges."
+
+    def execute(self, context):
+        obj = context.active_object
+        bm = bmesh.from_edit_mesh(obj.data)
+        sel_edges = [x for x in bm.edges if x.select and x.seam]
+
+        flap_src_island_layer = bm.edges.layers.int.get('glue_flap_island_source')
+        flap_target_island_layer = bm.edges.layers.int.get('glue_flap_island_target')
+        flap_src_face_layer = bm.edges.layers.int.get('glue_flap_face_source')
+        flap_target_face_layer = bm.edges.layers.int.get('glue_flap_face_target')
+        for cur_edge in sel_edges:
+            cur_src_island = cur_edge[flap_src_island_layer]
+            cur_src_face = cur_edge[flap_src_face_layer]
+            cur_target_island = cur_edge[flap_target_island_layer]
+            cur_target_face = cur_edge[flap_target_face_layer]
+            cur_edge[flap_src_island_layer] = cur_target_island
+            cur_edge[flap_src_face_layer] = cur_target_face
+            cur_edge[flap_target_island_layer] = cur_src_island
+            cur_edge[flap_target_face_layer] = cur_src_face
+
+        context.area.tag_redraw()
+        return {'FINISHED'}
+   
+    def invoke(self, context, event):
+        print("Invoke in Test Operator.")
+        self.execute(context)
+        return {'FINISHED'}
+    
+
 class HighlightIsland(bpy.types.Operator):
     """Highlight Operator"""
 
@@ -584,6 +623,7 @@ class HighlightIsland(bpy.types.Operator):
 
         # Initialize the shader.
         self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.poly_line_shader = gpu.shader.from_builtin('POLYLINE_UNIFORM_COLOR')
         
         # Compute the BVHTree of the mesh.
         obj = context.active_object
@@ -591,7 +631,11 @@ class HighlightIsland(bpy.types.Operator):
         self.tree = mu.bvhtree.BVHTree.FromBMesh(bm)
 
         # Initialize the island selection state.
-        self.selected_face_id = -1
+        self.selected_face_id = None
+        self.selected_island_num = None
+        self.selected_island_faces = []
+        self.selected_island_boundary_edges = []
+        self.selected_island_flap_edges = []
         
         self.register_handlers(context)
         context.window_manager.modal_handler_add(self)
@@ -742,15 +786,75 @@ class HighlightIsland(bpy.types.Operator):
         print("draw_callback")
         obj = context.active_object
         bm = bmesh.from_edit_mesh(obj.data)
+
+        # Set the general gpu state.
+        gpu.state.blend_set("ALPHA")
+        gpu.state.depth_test_set('LESS_EQUAL')
+        #gpu.state.depth_mask_set(True)
+
+        normal_offset = 0.05
         
-        if self.selected_face_id >= 0:
+        if self.selected_face_id is not None:
             sel_face = bm.faces[self.selected_face_id]
-            coords = [(0, 0, 0), sel_face.calc_center_median_weighted()]
+            #coords = [(0, 0, 0), sel_face.calc_center_median_weighted()]
+            #batch = gpu_batch.batch_for_shader(self.shader,
+            #                                   'LINES',
+            #                                   {"pos": coords})
+            #self.shader.uniform_float("color", (1, 1, 0, 1))
+            verts = [obj.matrix_world @ (l.vert.co + normal_offset * l.vert.normal) for l in sel_face.loops]
+            batch = gpu_batch.batch_for_shader(self.shader,
+                                               'TRIS',
+                                               {"pos": verts})
+            self.shader.uniform_float("color", (1, 1, 0, 0.2))
+            #gpu.state.blend_set("ALPHA")
+            batch.draw(self.shader)
+
+        if self.selected_island_num is not None:
+            print("selected_island_num: {}.".format(self.selected_island_num))
+            # Highlight the island faces.
+            for cur_face in self.selected_island_faces:
+                if cur_face.index == self.selected_face_id:
+                    continue
+                verts = [obj.matrix_world @ (l.vert.co + normal_offset * l.vert.normal) for l in cur_face.loops]
+                batch = gpu_batch.batch_for_shader(self.shader,
+                                                   'TRIS',
+                                                   {"pos": verts})
+                self.shader.uniform_float("color", (0, 1, 1, 0.2))
+                batch.draw(self.shader)
+
+            # Highlight the island boundary.
+            verts = []
+            for cur_edge in self.selected_island_boundary_edges:
+                verts.append(obj.matrix_world @ (cur_edge.verts[0].co + normal_offset * cur_edge.verts[0].normal))
+                verts.append(obj.matrix_world @ (cur_edge.verts[1].co + normal_offset * cur_edge.verts[1].normal))
+
             batch = gpu_batch.batch_for_shader(self.shader,
                                                'LINES',
-                                               {"pos": coords})
-            self.shader.uniform_float("color", (1, 1, 0, 1))
-            batch.draw(self.shader)
+                                               {"pos": verts})
+            self.poly_line_shader.uniform_float("viewportSize",
+                                                gpu.state.viewport_get()[2:])
+
+            self.poly_line_shader.uniform_float("lineWidth", 3)
+            self.poly_line_shader.uniform_float("color", (0, 0, 1, 0.4))
+            batch.draw(self.poly_line_shader)
+
+            # Mark the glue flap edges of the island.
+            flap_src_island_layer = bm.edges.layers.int.get('glue_flap_island_source')
+            for cur_edge in self.selected_island_boundary_edges:
+                if cur_edge[flap_src_island_layer] != self.selected_island_num:
+                    continue
+                verts = [obj.matrix_world @ (cur_edge.verts[0].co + (normal_offset + 0.001) * cur_edge.verts[0].normal),
+                         obj.matrix_world @ (cur_edge.verts[1].co + (normal_offset + 0.001) * cur_edge.verts[1].normal)]
+                batch = gpu_batch.batch_for_shader(self.shader,
+                                                   'LINES',
+                                                   {"pos": verts})
+                self.poly_line_shader.uniform_float("viewportSize",
+                                                    gpu.state.viewport_get()[2:])
+
+                self.poly_line_shader.uniform_float("lineWidth", 4)
+                self.poly_line_shader.uniform_float("color", (0, 1, 0, 0.6))
+                batch.draw(self.poly_line_shader)
+            
             
 
     def get_island(self, context, mouse_x, mouse_y):
@@ -759,6 +863,7 @@ class HighlightIsland(bpy.types.Operator):
         print("get_island")
         obj = context.active_object
         mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
         region = bpy.context.region
         region_3d = bpy.context.space_data.region_3d
         mouse_pos = [mouse_x, mouse_y]
@@ -787,10 +892,22 @@ class HighlightIsland(bpy.types.Operator):
         hit_face_id = raycast_res[2]
         if hit_face_id is not None:
             self.selected_face_id = hit_face_id
+            island_num_layer = bm.faces.layers.int.get('island_num')
+            cur_face = bm.faces[self.selected_face_id]
+            self.selected_island_num = cur_face[island_num_layer]
+            self.selected_island_faces = [f for f in bm.faces if f[island_num_layer] == self.selected_island_num]
+            self.selected_island_boundary_edges = [e for f in self.selected_island_faces for e in f.edges if e.seam]
+            self.selected_island_boundary_edges = list(set(self.selected_island_boundary_edges))
+            print(len(self.selected_island_boundary_edges))
+                
 
             #sel_faces = [x for x in bm.faces if x.select]
             #for cur_face in sel_faces:
                 #print("cur_face.index: {}".format(cur_face.index))
                 #print("cur_face center: {}".format(cur_face.calc_center_median_weighted()))
         else:
-            self.selected_face_id = -1
+            self.selected_face_id = None
+            self.selected_island_num = None
+            self.selected_island_faces = []
+            self.selected_island_boundary_edges = []
+            self.selected_island_flap_edges = []
