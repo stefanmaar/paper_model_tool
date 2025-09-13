@@ -205,7 +205,7 @@ class Mesh:
         def uvedge_priority(uvedge):
             """Returns whether it is a good idea to stick something on this edge's face"""
             # TODO: it should take into account overlaps with faces and with other stickers
-            flap_priority = 0
+            flap_priority = 1
             flap_face_source_layer = self.data.edges.layers.int.get('glue_flap_face_source')
             face = uvedge.uvface.face
 
@@ -213,9 +213,9 @@ class Mesh:
             print("generate_stickers")
             print("flap_face_source: {}; face.index: {}".format(flap_face_source, face.index))
             if (flap_face_source != -1) and (flap_face_source == face.index):
-                flap_priority = 1
-            elif (flap_face_source != -1) and (flap_face_source != face.index):
                 flap_priority = 0
+            elif (flap_face_source != -1) and (flap_face_source != face.index):
+                flap_priority = 1
             else:
                 flap_priority = face.calc_area() / face.calc_perimeter()
 
@@ -482,32 +482,21 @@ class Mesh:
         def uvedge_priority(uvedge):
             """Returns whether it is a good idea to stick something on this edge's face"""
             # TODO: it should take into account overlaps with faces and with other stickers
-            flap_priority = 0
+            flap_priority = 1
             flap_face_source_layer = self.data.edges.layers.int.get('glue_flap_face_source')
             face = uvedge.uvface.face
 
             flap_face_source = uvedge.loop.edge[flap_face_source_layer]
             print("flap_face_source: {}; face.index: {}".format(flap_face_source, face.index))
             if (flap_face_source != -1) and (flap_face_source == face.index):
-                flap_priority = 1
-            elif (flap_face_source != -1) and (flap_face_source != face.index):
                 flap_priority = 0
+            elif (flap_face_source != -1) and (flap_face_source != face.index):
+                flap_priority = 1
             else:
                 flap_priority = face.calc_area() / face.calc_perimeter()
 
             print("flap_priority: {}".format(flap_priority))
             return flap_priority
-
-        def add_sticker(uvedge, index, target_uvedge):
-            uvedge.sticker = pmt_export.Sticker(uvedge, default_width, index, target_uvedge)
-            uvedge.uvface.island.add_marker(uvedge.sticker)
-
-        def is_index_obvious(uvedge, target):
-            if uvedge in (target.neighbor_left, target.neighbor_right):
-                return True
-            if uvedge.neighbor_left.loop.edge is target.neighbor_right.loop.edge and uvedge.neighbor_right.loop.edge is target.neighbor_left.loop.edge:
-                return True
-            return False
 
         flap_island_source_layer = self.data.edges.layers.int.get('glue_flap_island_source')
         flap_island_target_layer = self.data.edges.layers.int.get('glue_flap_island_target')
@@ -515,30 +504,17 @@ class Mesh:
         flap_face_target_layer = self.data.edges.layers.int.get('glue_flap_face_target')
 
         for edge in self.edges.values():
-            index = None
             if edge.is_main_cut and len(edge.uvedges) >= 2 and edge.vector.length_squared > 0:
                 target, source = edge.uvedges[:2]
                 if uvedge_priority(target) < uvedge_priority(source):
                     target, source = source, target
-                #target_island = target.uvface.island
-                #if do_create_numbers:
-                #    for uvedge in [source] + edge.uvedges[2:]:
-                #        if not is_index_obvious(uvedge, target):
-                #            # it will not be clear to see that these uvedges should be sticked together
-                #            # So, create an arrow and put the index on all stickers
-                #            target_island.sticker_numbering += 1
-                #            index = str(target_island.sticker_numbering)
-                #            if pmt_util.is_upsidedown_wrong(index):
-                #                index += "."
-                #            target_island.add_marker(pmt_export.Arrow(target, default_width, index))
-                #            break
-                #add_sticker(source, index, target)
                 source.loop.edge[flap_island_source_layer] = source.uvface.island.number
                 source.loop.edge[flap_island_target_layer] = target.uvface.island.number
                 source.loop.edge[flap_face_source_layer] = source.uvface.face.index
                 source.loop.edge[flap_face_target_layer] = target.uvface.face.index
             elif len(edge.uvedges) > 2:
                 target = edge.uvedges[0]
+                
             if len(edge.uvedges) > 2:
                 for source in edge.uvedges[2:]:
                     #add_sticker(source, index, target)
