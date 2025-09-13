@@ -1,5 +1,6 @@
 import itertools as itt
 import mathutils as mu
+import os
 
 from . import uv as pmt_uv
 
@@ -55,7 +56,8 @@ class Sticker:
         """Sticker is directly attached to the given UVEdge"""
         first_vertex, second_vertex = (uvedge.va, uvedge.vb) if not uvedge.uvface.flipped else (uvedge.vb, uvedge.va)
         edge = first_vertex.co - second_vertex.co
-        sticker_width = min(default_width, edge.length / 2)
+        #sticker_width = min(default_width, edge.length / 2)
+        sticker_width = default_width
         other_first, other_second = (other.va, other.vb) if not other.uvface.flipped else (other.vb, other.va)
         other_edge = other_second.co - other_first.co
 
@@ -353,7 +355,7 @@ class Svg:
     """Simple SVG exporter"""
 
     def __init__(self, properties):
-        util.init_exporter(self, properties)
+        init_exporter(self, properties)
 
     @classmethod
     def encode_image(cls, bpy_image):
