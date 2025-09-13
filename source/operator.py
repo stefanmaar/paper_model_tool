@@ -491,50 +491,6 @@ class SelectIsland(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class InitializeGlueFlaps(bpy.types.Operator):
-    """Initialize the glue flaps of an unfolded mesh"""
-
-    bl_idname = "mesh.pmt_init_glue_flaps"
-    bl_label = "Initialize Glue Flaps"
-    bl_description = "Initialize the glue flaps of an unfolded mesh."
-
-    def execute(self, context):
-        print("Execute pmt_init_glue_flaps.")
-        return {'FINISHED'}
-   
-    def invoke(self, context, event):
-        print("Invoke pmg_init_glue_flaps.")
-        print(event)
-        obj = context.active_object
-        mesh = obj.data
-        bm = bmesh.from_edit_mesh(mesh)
-
-        # Create the flap_island edge attribute if it doesn't exist.
-        if 'glue_flap_island' not in mesh.attributes:
-            attribute = mesh.attributes.new(name="glue_flap_island",
-                                            type="INT",
-                                            domain="EDGE")
-
-        flap_layer = bm.edges.layers.int.get('glue_flap_island')
-        for cur_edge in bm.edges:
-            cur_edge[flap_layer] = -1
-        
-        seam_edges = [x for x in bm.edges if x.seam]
-        sel_edges = [x for x in bm.edges if x.select]
-        sel_faces = [x for x in bm.faces if x.select]
-        print(seam_edges)
-        print(sel_edges)
-        for cur_face in sel_faces:
-            print(cur_face.calc_center_median_weighted())
-
-        island_list = mesh.paper_island_list
-        for k, cur_island in enumerate(island_list):
-            for cur_island_edge in cur_island.edges:
-                if cur_island_edge.data[flap_layer] == -1:
-                    cur_island_edge.data[flap_layer] = k
-        
-        return {'FINISHED'}
-
 class TestOperator(bpy.types.Operator):
     """Test Operator"""
 

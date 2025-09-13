@@ -34,8 +34,6 @@ class VIEW3D_PT_glue_flaps_panel(bpy.types.Panel):
         sce = context.scene
         obj = context.active_object
         mesh = obj.data if obj and obj.type == 'MESH' else None
-
-        layout.operator("mesh.pmt_init_glue_flaps")
         
         if context.mode == 'EDIT_MESH':
             layout.operator("mesh.pmt_highlight_island")

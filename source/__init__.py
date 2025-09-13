@@ -56,7 +56,6 @@ module_classes = (
     pmt_operator.ExportPaperModel,
     pmt_operator.FlipGlueFlaps,
     pmt_operator.HighlightIsland,
-    pmt_operator.InitializeGlueFlaps,
     pmt_operator.SelectIsland,
     pmt_operator.TestOperator,
     pmt_operator.Unfold,
