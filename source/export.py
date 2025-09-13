@@ -418,27 +418,35 @@ class Svg:
                 if page.image_path:
                     print(
                         self.image_linked_tag.format(
+                            id = 'page_image',
+                            inkscape_label = 'page_image',
                             pos="{0:.6f} {0:.6f}".format(self.margin.x*1000),
                             width=(self.page_size.x - 2 * self.margin.x)*1000,
                             height=(self.page_size.y - 2 * self.margin.y)*1000,
                             path=path_convert(page.image_path)),
                         file=f)
                 if len(page.islands) > 1:
-                    print("<g>", file=f)
+                    print('<g id="model">', file=f)
 
                 for island in page.islands:
-                    print("<g>", file=f)
+                    print('<g id="{}">'.format(island.label.replace(' ', '_')), file=f)
                     if island.image_path:
+                        tag_id = "{}_texture".format(island.label.replace(' ', '_'))
                         print(
                             self.image_linked_tag.format(
+                                tag_id = tag_id,
+                                inkscape_label = 'texture',
                                 pos=self.format_vertex(island.pos + mu.Vector((0, island.bounding_box.y))),
                                 width=island.bounding_box.x*1000,
                                 height=island.bounding_box.y*1000,
                                 path=path_convert(island.image_path)),
                             file=f)
                     elif island.embedded_image:
+                        tag_id = "{}_texture".format(island.label.replace(' ', '_'))
                         print(
                             self.image_embedded_tag.format(
+                                tag_id = tag_id,
+                                inkscape_label = 'texture',
                                 pos=self.format_vertex(island.pos + mu.Vector((0, island.bounding_box.y))),
                                 width=island.bounding_box.x*1000,
                                 height=island.bounding_box.y*1000,
@@ -446,11 +454,14 @@ class Svg:
                             island.embedded_image, "'/>",
                             file=f, sep="")
                     if island.title:
+                        tag_id = "{}_title".format(island.label.replace(' ', '_'))
                         print(
                             self.text_tag.format(
                                 size=1000 * self.text_size,
                                 x=1000 * (island.bounding_box.x*0.5 + island.pos.x + self.margin.x),
                                 y=1000 * (self.page_size.y - island.pos.y - self.margin.y - 0.2 * self.text_size),
+                                tag_id = tag_id,
+                                inkscape_label = 'title',
                                 label=island.title),
                             file=f)
 
@@ -481,7 +492,9 @@ class Svg:
                                 mat=format_matrix(marker.rot),
                                 size=marker.size * 1000))
                     if data_stickerfill and self.style.sticker_color[3] > 0:
-                        print("<path class='sticker' d='", rows(data_stickerfill), "'/>", file=f)
+                        tag_id = "{}_flaps".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='flaps' class='sticker' d='"
+                        print(tag_start, rows(data_stickerfill), "'/>", file=f)
 
                     data_outer, data_convex, data_concave, data_freestyle = (list() for i in range(4))
                     outer_edges = set(island.boundary)
@@ -522,28 +535,46 @@ class Svg:
                         data_convex, data_concave = data_concave, data_convex
 
                     if data_freestyle:
+                        tag_id = "{}_freestyle".format(island.label.replace(' ', '_'))
                         print("<path class='freestyle' d='", rows(data_freestyle), "'/>", file=f)
+                        
                     if (data_convex or data_concave) and not self.pure_net and self.style.use_inbg:
-                        print("<path class='inner_background' d='", rows(data_convex + data_concave), "'/>", file=f)
+                        tag_id = "{}_inner_bg".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='inner_bg' class='inner_background' d='".format(tag_id = tag_id)
+                        print(tag_start, rows(data_convex + data_concave), "'/>", file=f)
+                        
                     if data_convex:
-                        print("<path class='convex' d='", rows(data_convex), "'/>", file=f)
+                        tag_id = "{}_inner_convex".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='inner_convex' class='convex' d='".format(tag_id = tag_id)
+                        print(tag_start, rows(data_convex), "'/>", file=f)
+                        
                     if data_concave:
-                        print("<path class='concave' d='", rows(data_concave), "'/>", file=f)
+                        tag_id = "{}_inner_concave".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='inner_concave' class='concave' d='".format(tag_id = tag_id), rows(data_concave)
+                        print(tag_start, "'/>", file=f)
+                        
                     if data_outer:
                         if not self.pure_net and self.style.use_outbg:
-                            print("<path class='outer_background' d='", rows(data_outer), "'/>", file=f)
-                        print("<path class='outer' d='", rows(data_outer), "'/>", file=f)
+                            tag_id = "{}_outer_bg".format(island.label.replace(' ', '_'))
+                            tag_start = "<path id='{tag_id:}' inkscape:label='outer_bg' class='outer_background' d='".format(tag_id = tag_id)
+                            print(tag_start, rows(data_outer), "'/>", file=f)
+                            
+                        tag_id = "{}_outer".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='outer' class='outer' d='".format(tag_id = tag_id)
+                        print(tag_start, rows(data_outer), "'/>", file=f)
+                        
                     if data_markers:
                         print(rows(data_markers), file=f)
+                        
                     print("</g>", file=f)
 
                 if len(page.islands) > 1:
                     print("</g>", file=f)
                 print("</svg>", file=f)
 
-    image_linked_tag = "<image transform='translate({pos})' width='{width:.6f}' height='{height:.6f}' xlink:href='{path}'/>"
-    image_embedded_tag = "<image transform='translate({pos})' width='{width:.6f}' height='{height:.6f}' xlink:href='data:image/png;base64,"
-    text_tag = "<text transform='translate({x} {y})' style='font-size:{size:.2f}'><tspan>{label}</tspan></text>"
+    image_linked_tag = "<image id='{tag_id:}' inkscape:label='{inkscape_label:}' transform='translate({pos})' width='{width:.6f}' height='{height:.6f}' xlink:href='{path}'/>"
+    image_embedded_tag = "<image id='{tag_id:}' inkscape:label='{inkscape_label:}' transform='translate({pos})' width='{width:.6f}' height='{height:.6f}' xlink:href='data:image/png;base64,"
+    text_tag = "<text id='{tag_id:}' transform='translate({x} {y})' style='font-size:{size:.2f}' inkscape:label='{inkscape_label:}'><tspan>{label}</tspan></text>"
     text_transformed_tag = "<text transform='matrix({mat} {pos})' style='font-size:{size:.2f}'><tspan>{label}</tspan></text>"
     arrow_marker_tag = "<g><path transform='matrix({mat} {arrow_pos})' class='arrow' d='M 0 0 L 1 1 L 0 0.25 L -1 1 Z'/>" \
         "<text transform='translate({pos})' style='font-size:{scale:.2f}'><tspan>{index}</tspan></text></g>"
