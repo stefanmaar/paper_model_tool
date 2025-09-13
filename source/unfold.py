@@ -81,8 +81,9 @@ class Unfolder:
             self.mesh.generate_numbers_alone(properties.sticker_width)
 
         text_height = properties.sticker_width if (properties.do_create_numbers and len(self.mesh.islands) > 1) else 0
+        title_height = properties.sticker_width * 1.2
         # title height must be somewhat larger that text size, glyphs go below the baseline
-        self.mesh.finalize_islands(printable_size, title_height=text_height * 1.2)
+        self.mesh.finalize_islands(printable_size, title_height=title_height)
         self.mesh.fit_islands(printable_size)
 
         if properties.output_type != 'NONE':
