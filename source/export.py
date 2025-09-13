@@ -492,8 +492,8 @@ class Svg:
                                 mat=format_matrix(marker.rot),
                                 size=marker.size * 1000))
                     if data_stickerfill and self.style.sticker_color[3] > 0:
-                        tag_id = "{}_flaps".format(island.label.replace(' ', '_'))
-                        tag_start = "<path id='{tag_id:}' inkscape:label='flaps' class='sticker' d='"
+                        tag_id = "{}_flaps_bg".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='flaps_bg' class='sticker' d='"
                         print(tag_start, rows(data_stickerfill), "'/>", file=f)
 
                     data_outer, data_convex, data_concave, data_freestyle = (list() for i in range(4))
@@ -550,8 +550,8 @@ class Svg:
                         
                     if data_concave:
                         tag_id = "{}_inner_concave".format(island.label.replace(' ', '_'))
-                        tag_start = "<path id='{tag_id:}' inkscape:label='inner_concave' class='concave' d='".format(tag_id = tag_id), rows(data_concave)
-                        print(tag_start, "'/>", file=f)
+                        tag_start = "<path id='{tag_id:}' inkscape:label='inner_concave' class='concave' d='".format(tag_id = tag_id)
+                        print(tag_start, rows(data_concave), "'/>", file=f)
                         
                     if data_outer:
                         if not self.pure_net and self.style.use_outbg:
