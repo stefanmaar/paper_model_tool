@@ -796,15 +796,14 @@ class HighlightIsland(bpy.types.Operator):
         
         if self.selected_face_id is not None:
             sel_face = bm.faces[self.selected_face_id]
-            #coords = [(0, 0, 0), sel_face.calc_center_median_weighted()]
-            #batch = gpu_batch.batch_for_shader(self.shader,
-            #                                   'LINES',
-            #                                   {"pos": coords})
-            #self.shader.uniform_float("color", (1, 1, 0, 1))
+            # Get the vertices with shifted along the normals.
             verts = [obj.matrix_world @ (l.vert.co + normal_offset * l.vert.normal) for l in sel_face.loops]
+            # Get the triangle indices.
+            polys = mu.geometry.tessellate_polygon((verts,))
             batch = gpu_batch.batch_for_shader(self.shader,
                                                'TRIS',
-                                               {"pos": verts})
+                                               {"pos": verts},
+                                               indices = polys)
             self.shader.uniform_float("color", (1, 1, 0, 0.2))
             #gpu.state.blend_set("ALPHA")
             batch.draw(self.shader)
@@ -815,10 +814,14 @@ class HighlightIsland(bpy.types.Operator):
             for cur_face in self.selected_island_faces:
                 if cur_face.index == self.selected_face_id:
                     continue
+                # Get the vertices with shifted along the normals.
                 verts = [obj.matrix_world @ (l.vert.co + normal_offset * l.vert.normal) for l in cur_face.loops]
+                # Get the triangle indices.
+                polys = mu.geometry.tessellate_polygon((verts,))
                 batch = gpu_batch.batch_for_shader(self.shader,
                                                    'TRIS',
-                                                   {"pos": verts})
+                                                   {"pos": verts},
+                                                   indices = polys)
                 self.shader.uniform_float("color", (0, 1, 1, 0.2))
                 batch.draw(self.shader)
 
