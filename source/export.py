@@ -497,6 +497,8 @@ class Svg:
                         print(tag_start, rows(data_stickerfill), "'/>", file=f)
 
                     data_outer, data_convex, data_concave, data_freestyle = (list() for i in range(4))
+                    data_convex_outside = list()
+                    data_concave_outside = list()
                     outer_edges = set(island.boundary)
                     while outer_edges:
                         data_loop = list()
@@ -521,6 +523,22 @@ class Svg:
                             continue
                         data_uvedge = "M {}".format(
                             line_through(self.format_vertex(v.co + island.pos) for v in (uvedge.va, uvedge.vb)))
+
+                        # Compute the outside edge lines.
+                        edge_dir = (uvedge.va.co - uvedge.vb.co).normalized()
+                        print('#####')
+                        print(edge_dir)
+                        end_point = uvedge.va.co + edge_dir * 0.010
+                        print(end_point)
+                        data_outside_edge_1 = "M {}".format(
+                            line_through((self.format_vertex(uvedge.va.co + island.pos),
+                                          self.format_vertex(end_point))))
+                        end_point = uvedge.vb.co - edge_dir * 0.010
+                        data_outside_edge_2 = "M {}".format(
+                            line_through((self.format_vertex(uvedge.vb.co + island.pos),
+                                          self.format_vertex(end_point))))
+
+                        
                         if edge.freestyle:
                             data_freestyle.append(data_uvedge)
                         # each uvedge is in two opposite-oriented variants; we want to add each only once
@@ -529,8 +547,12 @@ class Svg:
                             visited_edges.add(vertex_pair)
                             if edge.angle > self.angle_epsilon:
                                 data_convex.append(data_uvedge)
+                                # Add the outside convex edge lines.
+                                data_convex_outside.append(data_outside_edge_1)
+                                data_convex_outside.append(data_outside_edge_2)
                             elif edge.angle < -self.angle_epsilon:
                                 data_concave.append(data_uvedge)
+
                     if island.is_inside_out:
                         data_convex, data_concave = data_concave, data_convex
 
@@ -547,6 +569,14 @@ class Svg:
                         tag_id = "{}_inner_convex".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='inner_convex' class='convex' d='".format(tag_id = tag_id)
                         print(tag_start, rows(data_convex), "'/>", file=f)
+
+                    if data_convex_outside:
+                        tag_id = "{}_outer_convex".format(island.label.replace(' ', '_'))
+                        mask_name = "{}_outer_mask".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='outer_convex' class='convex' mask='url(#{mask_name:})' d='".format(tag_id = tag_id,
+                                                                                                                                             mask_name = mask_name)
+                        print(tag_start, rows(data_convex_outside), "'/>", file=f)
+                            
                         
                     if data_concave:
                         tag_id = "{}_inner_concave".format(island.label.replace(' ', '_'))
@@ -562,6 +592,18 @@ class Svg:
                         tag_id = "{}_outer".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='outer' class='outer' d='".format(tag_id = tag_id)
                         print(tag_start, rows(data_outer), "'/>", file=f)
+
+                        # Add the outer path as a masking path.
+                        tag_id = "{}_outer_mask".format(island.label.replace(' ', '_'))
+                        mask_bg = "<rect x='0' y='0' width='100%' height='100%' style='fill:#ffffff;stroke:none'/>"
+                        mask_fg = "<path style='fill:#000000;stroke:#000000;stroke-width:1' d='{path_data:}' />".format(path_data =  rows(data_outer))
+                        tag_start = "<defs><mask id='{tag_id:}'><g>".format(tag_id = tag_id)
+                        tag_end = "</g></mask></defs>"
+                        print(tag_start,
+                              mask_bg,
+                              mask_fg,
+                              tag_end,
+                              file = f)
                         
                     if data_markers:
                         print(rows(data_markers), file=f)
