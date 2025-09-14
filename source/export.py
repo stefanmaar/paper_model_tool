@@ -526,10 +526,7 @@ class Svg:
 
                         # Compute the outside edge lines.
                         edge_dir = (uvedge.va.co - uvedge.vb.co).normalized()
-                        print('#####')
-                        print(edge_dir)
                         end_point = uvedge.va.co + edge_dir * 0.010
-                        print(end_point)
                         data_outside_edge_1 = "M {}".format(
                             line_through((self.format_vertex(uvedge.va.co + island.pos),
                                           self.format_vertex(end_point))))
