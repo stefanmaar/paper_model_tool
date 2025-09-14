@@ -525,15 +525,16 @@ class Svg:
                             line_through(self.format_vertex(v.co + island.pos) for v in (uvedge.va, uvedge.vb)))
 
                         # Compute the outside edge lines.
+                        outer_line_length = 0.005
                         edge_dir = (uvedge.va.co - uvedge.vb.co).normalized()
-                        end_point = uvedge.va.co + edge_dir * 0.010
+                        end_point = uvedge.va.co + edge_dir * outer_line_length
                         data_outside_edge_1 = "M {}".format(
                             line_through((self.format_vertex(uvedge.va.co + island.pos),
-                                          self.format_vertex(end_point))))
-                        end_point = uvedge.vb.co - edge_dir * 0.010
+                                          self.format_vertex(end_point + island.pos))))
+                        end_point = uvedge.vb.co - edge_dir * outer_line_length
                         data_outside_edge_2 = "M {}".format(
                             line_through((self.format_vertex(uvedge.vb.co + island.pos),
-                                          self.format_vertex(end_point))))
+                                          self.format_vertex(end_point + island.pos))))
 
                         
                         if edge.freestyle:
@@ -545,10 +546,15 @@ class Svg:
                             if edge.angle > self.angle_epsilon:
                                 data_convex.append(data_uvedge)
                                 # Add the outside convex edge lines.
-                                data_convex_outside.append(data_outside_edge_1)
-                                data_convex_outside.append(data_outside_edge_2)
+                                if not uvedge.sticker:
+                                    data_convex_outside.append(data_outside_edge_1)
+                                    data_convex_outside.append(data_outside_edge_2)
                             elif edge.angle < -self.angle_epsilon:
                                 data_concave.append(data_uvedge)
+                                # Add the outside convex edge lines.
+                                if not uvedge.sticker:
+                                    data_concave_outside.append(data_outside_edge_1)
+                                    data_concave_outside.append(data_outside_edge_2)
 
                     if island.is_inside_out:
                         data_convex, data_concave = data_concave, data_convex
@@ -573,7 +579,13 @@ class Svg:
                         tag_start = "<path id='{tag_id:}' inkscape:label='outer_convex' class='convex' mask='url(#{mask_name:})' d='".format(tag_id = tag_id,
                                                                                                                                              mask_name = mask_name)
                         print(tag_start, rows(data_convex_outside), "'/>", file=f)
-                            
+
+                    if data_concave_outside:
+                        tag_id = "{}_outer_concave".format(island.label.replace(' ', '_'))
+                        mask_name = "{}_outer_mask".format(island.label.replace(' ', '_'))
+                        tag_start = "<path id='{tag_id:}' inkscape:label='outer_concave' class='concave' mask='url(#{mask_name:})' d='".format(tag_id = tag_id,
+                                                                                                                                               mask_name = mask_name)
+                        print(tag_start, rows(data_concave_outside), "'/>", file=f)
                         
                     if data_concave:
                         tag_id = "{}_inner_concave".format(island.label.replace(' ', '_'))
