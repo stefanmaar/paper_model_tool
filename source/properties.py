@@ -55,6 +55,11 @@ class PaperModelStyle(bpy.types.PropertyGroup):
         ('LONGDASH', "Long Dashes (-- --)", "Solid line"),
         ('DASHDOT', "Dash-dotted (-- .)", "Solid line")
     ]
+    line_locations = [
+        ("INSIDE", "Inside", "Lines inside the island."),
+        ("OUTSIDE", "Outside", "Lines outside the island."),
+        ("IN_AND_OUT", "In- and Outside", "Lines inside and outside the island.")
+    ]
     outer_color: bpy.props.FloatVectorProperty(
         name="Outer Lines", description="Color of net outline",
         default=(0.0, 0.0, 0.0, 1.0), min=0, max=1, subtype='COLOR', size=4)
@@ -86,6 +91,9 @@ class PaperModelStyle(bpy.types.PropertyGroup):
     convex_width: bpy.props.FloatProperty(
         name="Convex Lines Thickness", description="Relative thickness of concave lines",
         default=2, min=0, soft_max=10, precision=1, step=10, subtype='FACTOR')
+    convex_location: bpy.props.EnumProperty(
+        name="Convex Lines Location", description="Placement of the convex lines.",
+        default='INSIDE', items=line_locations)
     concave_color: bpy.props.FloatVectorProperty(
         name="Inner Concave Lines", description="Color of lines to be folded to a concave angle",
         default=(0.0, 0.0, 0.0, 1.0), min=0, max=1, subtype='COLOR', size=4)
@@ -95,6 +103,9 @@ class PaperModelStyle(bpy.types.PropertyGroup):
     concave_width: bpy.props.FloatProperty(
         name="Concave Lines Thickness", description="Relative thickness of concave lines",
         default=2, min=0, soft_max=10, precision=1, step=10, subtype='FACTOR')
+    concave_location: bpy.props.EnumProperty(
+        name="Concave Lines Location", description="Placement of the concave lines.",
+        default='INSIDE', items=line_locations)
     freestyle_color: bpy.props.FloatVectorProperty(
         name="Freestyle Edges", description="Color of lines marked as Freestyle Edge",
         default=(0.0, 0.0, 0.0, 1.0), min=0, max=1, subtype='COLOR', size=4)

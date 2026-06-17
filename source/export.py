@@ -567,27 +567,27 @@ class Svg:
                         tag_id = "{}_inner_bg".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='inner_bg' class='inner_background' d='".format(tag_id = tag_id)
                         print(tag_start, rows(data_convex + data_concave), "'/>", file=f)
-                        
-                    if data_convex:
+
+                    if data_convex and self.style.convex_location.lower() in ['inside', 'in_and_out']:
                         tag_id = "{}_inner_convex".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='inner_convex' class='convex' d='".format(tag_id = tag_id)
                         print(tag_start, rows(data_convex), "'/>", file=f)
 
-                    if data_convex_outside:
+                    if data_convex_outside and self.style.convex_location.lower() in ['outside', 'in_and_out']:
                         tag_id = "{}_outer_convex".format(island.label.replace(' ', '_'))
                         mask_name = "{}_outer_mask".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='outer_convex' class='convex' mask='url(#{mask_name:})' d='".format(tag_id = tag_id,
                                                                                                                                              mask_name = mask_name)
                         print(tag_start, rows(data_convex_outside), "'/>", file=f)
 
-                    if data_concave_outside:
+                    if data_concave_outside and self.style.concave_location.lower() in ['outside', 'in_and_out']:
                         tag_id = "{}_outer_concave".format(island.label.replace(' ', '_'))
                         mask_name = "{}_outer_mask".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='outer_concave' class='concave' mask='url(#{mask_name:})' d='".format(tag_id = tag_id,
                                                                                                                                                mask_name = mask_name)
                         print(tag_start, rows(data_concave_outside), "'/>", file=f)
                         
-                    if data_concave:
+                    if data_concave and self.style.concave_location.lower() in ['inside', 'in_and_out']:
                         tag_id = "{}_inner_concave".format(island.label.replace(' ', '_'))
                         tag_start = "<path id='{tag_id:}' inkscape:label='inner_concave' class='concave' d='".format(tag_id = tag_id)
                         print(tag_start, rows(data_concave), "'/>", file=f)
