@@ -713,6 +713,7 @@ class HighlightIsland(bpy.types.Operator):
         elif event.type in {'ESC'}:
             print("ESC - STOPPING modal mode.")
             self.unregister_handlers(context)
+            context.area.tag_redraw()
             return {'FINISHED'}
 
         context.area.tag_redraw()
