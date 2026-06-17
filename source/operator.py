@@ -805,17 +805,76 @@ class HighlightIsland(bpy.types.Operator):
             for cur_edge in self.selected_island_boundary_edges:
                 if cur_edge[flap_src_island_layer] != self.selected_island_num:
                     continue
+
+                # Offset the edges.
                 verts = [obj.matrix_world @ (cur_edge.verts[0].co + (normal_offset + 0.001) * cur_edge.verts[0].normal),
                          obj.matrix_world @ (cur_edge.verts[1].co + (normal_offset + 0.001) * cur_edge.verts[1].normal)]
+
+                # Draw the edges.
                 batch = gpu_batch.batch_for_shader(self.shader,
                                                    'LINES',
                                                    {"pos": verts})
                 self.poly_line_shader.uniform_float("viewportSize",
                                                     gpu.state.viewport_get()[2:])
 
-                self.poly_line_shader.uniform_float("lineWidth", 4)
-                self.poly_line_shader.uniform_float("color", (0, 1, 0, 0.6))
+                self.poly_line_shader.uniform_float("lineWidth", 2)
+                self.poly_line_shader.uniform_float("color", (0, 1, 0, 1))
                 batch.draw(self.poly_line_shader)
+
+                # Compute the glue flap marker triangle.
+                edge_center = (verts[0] + verts[1]) / 2
+                
+
+                # Get the target face.
+                flap_target_face_layer = bm.edges.layers.int.get('glue_flap_face_target')
+                cur_target_face_id = cur_edge[flap_target_face_layer]
+                cur_target_face = bm.faces[cur_target_face_id]
+
+                # Get the edge direction as used by the target face.
+                target_loop = None
+                for cur_loop in cur_edge.link_loops:
+                    if cur_loop.face == cur_target_face:
+                        target_loop = cur_loop
+                        break
+                
+                edge_end = target_loop.vert.co
+                edge_start = target_loop.link_loop_next.vert.co
+                edge_direction = (edge_end - edge_start).normalized()
+                
+                flap_direction = edge_direction.cross(cur_target_face.normal).normalized()
+
+                marker_base_width = 0.2
+                marker_height = (math.sqrt(3) * marker_base_width) / 2
+                marker_left = edge_center - (edge_direction * (marker_base_width / 2))
+                marker_right = edge_center + (edge_direction * (marker_base_width / 2))
+                marker_tip = edge_center + flap_direction * marker_height
+
+                tris_verts = [marker_left, marker_right, marker_tip]
+                tris_indices = [(0, 1, 2)]
+                
+                outline_verts = [marker_left, marker_right,
+                                 marker_right, marker_tip,
+                                 marker_tip, marker_left]
+                                 
+                
+                # Draw the flap marker outline.
+                #batch = gpu_batch.batch_for_shader(self.poly_line_shader,
+                #                                   'LINES',
+                #                                   {"pos": outline_verts})
+                #self.poly_line_shader.uniform_float("viewportSize",
+                #                                    gpu.state.viewport_get()[2:])
+                #self.poly_line_shader.uniform_float("lineWidth", 2)
+                #self.poly_line_shader.uniform_float("color", (1, 0, 0, 1))
+                #batch.draw(self.poly_line_shader)
+
+                # Draw the flap marker face.
+                batch = gpu_batch.batch_for_shader(self.shader,
+                                                   'TRIS',
+                                                   {"pos": tris_verts},
+                                                   indices = tris_indices)
+                self.shader.uniform_float("color", (0, 0, 0, 0.6))
+                batch.draw(self.shader)
+
             
             
 
