@@ -594,6 +594,7 @@ class HighlightIsland(bpy.types.Operator):
         self.selected_island_faces = []
         self.selected_island_boundary_edges = []
         self.selected_island_flap_edges = []
+        self.nearest_edge_id = None
         
         self.register_handlers(context)
         context.window_manager.modal_handler_add(self)
@@ -872,7 +873,11 @@ class HighlightIsland(bpy.types.Operator):
                                                    'TRIS',
                                                    {"pos": tris_verts},
                                                    indices = tris_indices)
-                self.shader.uniform_float("color", (0, 0, 0, 0.6))
+                if cur_edge.index == self.nearest_edge_id:
+                    cur_color = (1, 1, 0, 1)
+                else:
+                    cur_color = (0, 0, 0, 0.6)
+                self.shader.uniform_float("color", cur_color)
                 batch.draw(self.shader)
 
             
@@ -905,7 +910,7 @@ class HighlightIsland(bpy.types.Operator):
 
         raycast_res = self.tree.ray_cast(ray_origin_obj, ray_direction)
         
-        #print("raycast_res: {}".format(raycast_res))
+        print("raycast_res: {}".format(raycast_res))
         #print("ray_origin: {}".format(ray_origin))
         #print("ray_origin_obj: {}".format(ray_origin_obj))
         #print("ray_direction: {}".format(ray_direction))
@@ -920,7 +925,35 @@ class HighlightIsland(bpy.types.Operator):
             self.selected_island_boundary_edges = [e for f in self.selected_island_faces for e in f.edges if e.seam]
             self.selected_island_boundary_edges = list(set(self.selected_island_boundary_edges))
             print(len(self.selected_island_boundary_edges))
+
+            # Get the edge closest to the hit point.
+            hit_pos = raycast_res[0]
+            hit_face = bm.faces[hit_face_id]
+
+            nearest_edge = None
+            nearest_edge_dist = float('inf')
+            
+            for cur_edge in hit_face.edges:
+                v1 = cur_edge.verts[0].co
+                v2 = cur_edge.verts[1].co
+
+                proj_point, percent = mu.geometry.intersect_point_line(hit_pos,
+                                                                       v1,
+                                                                       v2)
+
+                if percent < 0:
+                    proj_point = v1
+                elif percent > 1:
+                    proj_point = v2
+
+                edge_dist = (hit_pos - proj_point).length
+
+                if edge_dist < nearest_edge_dist:
+                    nearest_edge = cur_edge
+                    nearest_edge_dist = edge_dist
                 
+            self.nearest_edge_id = nearest_edge.index
+            #print("nearest_edge: {}".format(nearest_edge))
 
             #sel_faces = [x for x in bm.faces if x.select]
             #for cur_face in sel_faces:
@@ -932,3 +965,4 @@ class HighlightIsland(bpy.types.Operator):
             self.selected_island_faces = []
             self.selected_island_boundary_edges = []
             self.selected_island_flap_edges = []
+            self.nearest_edge_id = None
